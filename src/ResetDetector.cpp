@@ -32,7 +32,6 @@ void ResetDetector::writeResetCount(uint8_t resetCount) {
   ESP.rtcUserMemoryWrite(memoryOffset + 1, &resetCount4Byte, sizeof(resetCount4Byte));
 }
 
-// Should be called on the first line of setup method
 uint8_t ResetDetector::detectResetCount() {
   uint8_t resetCount = readResetCount();
   if (system_get_rst_info()->reason == REASON_EXT_SYS_RST) {
@@ -41,7 +40,6 @@ uint8_t ResetDetector::detectResetCount() {
   return resetCount;
 }
 
-// Could be used instead of blocking finishMonitoring if timeoutMs is too big
 bool ResetDetector::handle() {
   if (!waitingForDoubleReset || system_get_rst_info()->reason != REASON_EXT_SYS_RST) {
     return false;
@@ -53,7 +51,6 @@ bool ResetDetector::handle() {
   return true;
 }
 
-// Should be called before leaving setup method
 void ResetDetector::finishMonitoring() {
   while (handle()) {
     yield();
