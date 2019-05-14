@@ -34,14 +34,17 @@ void ResetDetector::writeResetCount(uint8_t resetCount) {
 
 uint8_t ResetDetector::detectResetCount() {
   uint8_t resetCount = readResetCount();
-  if (system_get_rst_info()->reason == REASON_EXT_SYS_RST) {
+  if (system_get_rst_info()->reason == REASON_EXT_SYS_RST || 
+      system_get_rst_info()->reason == REASON_DEFAULT_RST) {
     writeResetCount(++resetCount);
   }
   return resetCount;
 }
 
 bool ResetDetector::handle() {
-  if (!waitingForDoubleReset || system_get_rst_info()->reason != REASON_EXT_SYS_RST) {
+  if (!waitingForDoubleReset 
+      || (system_get_rst_info()->reason != REASON_EXT_SYS_RST
+      && system_get_rst_info()->reason != REASON_DEFAULT_RST)) {
     return false;
   }
   if (millis() > timeoutMs) {
