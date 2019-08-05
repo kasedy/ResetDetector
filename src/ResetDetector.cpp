@@ -1,6 +1,5 @@
 #include "ResetDetector.h"
 
-#include <user_interface.h>
 
 #define RESET_DETECTOR_MEMORY_SET_FLAG 0xDEADBEEF
 
@@ -9,6 +8,13 @@ ResetDetector::ResetDetector(uint32_t timeoutMs, uint32_t memoryOffset) :
   timeoutMs(timeoutMs),
   memoryOffset(memoryOffset),
   waitingForDoubleReset(true) {
+    setValuableResetReasons({REASON_DEFAULT_RST, REASON_EXT_SYS_RST});
+}
+
+ResetDetector& ResetDetector::setValuableResetReasons(std::initializer_list<rst_reason> reasons) {
+  isLastResetReasonValuable = std::end(reasons) != std::find(
+    std::begin(reasons), std::end(reasons), system_get_rst_info()->reason);
+  return *this;
 }
 
 uint8_t ResetDetector::readResetCount() {
@@ -34,17 +40,14 @@ void ResetDetector::writeResetCount(uint8_t resetCount) {
 
 uint8_t ResetDetector::detectResetCount() {
   uint8_t resetCount = readResetCount();
-  if (system_get_rst_info()->reason == REASON_EXT_SYS_RST || 
-      system_get_rst_info()->reason == REASON_DEFAULT_RST) {
+  if (isLastResetReasonValuable) {
     writeResetCount(++resetCount);
   }
   return resetCount;
 }
 
 bool ResetDetector::handle() {
-  if (!waitingForDoubleReset 
-      || (system_get_rst_info()->reason != REASON_EXT_SYS_RST
-      && system_get_rst_info()->reason != REASON_DEFAULT_RST)) {
+  if (!waitingForDoubleReset || !isLastResetReasonValuable) {
     return false;
   }
   if (millis() > timeoutMs) {
@@ -60,9 +63,12 @@ void ResetDetector::finishMonitoring() {
   }
 }
 
-uint8_t ResetDetector::execute(uint32_t timeoutMs, uint32_t memoryOffset) {
-  ResetDetector resetDetector(timeoutMs, memoryOffset);
-  uint8_t resetCount = resetDetector.detectResetCount();
-  resetDetector.finishMonitoring();
+uint8_t ResetDetector::execute() {
+  uint8_t resetCount = detectResetCount();
+  finishMonitoring();
   return resetCount;
+}
+
+uint8_t ResetDetector::execute(uint32_t timeoutMs, uint32_t memoryOffset) {
+  return ResetDetector(timeoutMs, memoryOffset).execute();
 }

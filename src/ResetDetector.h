@@ -2,13 +2,25 @@
 #define ResetDetector_H__
 
 #include <Arduino.h>
+#include <user_interface.h>
 
 class ResetDetector {
   uint32_t timeoutMs;
   uint32_t memoryOffset;
   bool waitingForDoubleReset;
+  bool isLastResetReasonValuable;
 public:
   ResetDetector(uint32_t timeoutMs, uint32_t memoryOffset = 0);
+
+  /**
+   * Resets with the reason different to provide are ignored.
+   */
+  ResetDetector& setValuableResetReasons(std::initializer_list<rst_reason> reasons);
+
+  /**
+   * Starts blocking detection. Returns how many times microcontroller was reseted.
+   */
+  uint8_t execute();
 
   /**
    * Detscts the cause of device reset and increase the counter. Should be 
