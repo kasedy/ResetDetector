@@ -1,14 +1,14 @@
 #include "ResetDetector.h"
 
-
-#define RESET_DETECTOR_MEMORY_SET_FLAG 0xDEADBEEF
-
-
-ResetDetector::ResetDetector(uint32_t timeoutMs, uint32_t memoryOffset) :
+ResetDetector::ResetDetector(uint32_t timeoutMs, uint32_t eepromSector) :
   timeoutMs(timeoutMs),
-  memoryOffset(memoryOffset),
   waitingForDoubleReset(true) {
     setValuableResetReasons({REASON_DEFAULT_RST, REASON_EXT_SYS_RST});
+    eeprom.begin((eepromSector + 1) * SPI_FLASH_SEC_SIZE);
+}
+
+ResetDetector::~ResetDetector() {
+  eeprom.end();
 }
 
 ResetDetector& ResetDetector::setValuableResetReasons(std::initializer_list<rst_reason> reasons) {
@@ -18,24 +18,39 @@ ResetDetector& ResetDetector::setValuableResetReasons(std::initializer_list<rst_
 }
 
 uint8_t ResetDetector::readResetCount() {
-  uint32_t flag;
-  ESP.rtcUserMemoryRead(memoryOffset, &flag, sizeof(flag));
-  if (flag != RESET_DETECTOR_MEMORY_SET_FLAG) {
-    return 0;
+  uint8_t const *eepromBegin = eeprom.getConstDataPtr();
+  uint8_t const *eepromEnd = eepromBegin + SPI_FLASH_SEC_SIZE;
+  uint8_t const *resetCount = nullptr;
+  for (uint8_t const *cell = eepromBegin; cell < eepromEnd; ++cell) {
+    if (*cell == 0xFF) {
+      continue;
+    }
+    if (resetCount != nullptr) {
+      return 0;
+    }
+    resetCount = cell;
   }
-  uint32_t resetCount;
-  ESP.rtcUserMemoryRead(memoryOffset + 1, &resetCount, sizeof(resetCount));
-  if (resetCount > 0x000000FF) {
-    return 0;
-  }
-  return (uint8_t) resetCount;
+  return resetCount == nullptr ? 0 : *resetCount;
 }
 
 void ResetDetector::writeResetCount(uint8_t resetCount) {
-  uint32_t flag = RESET_DETECTOR_MEMORY_SET_FLAG;
-  ESP.rtcUserMemoryWrite(memoryOffset, &flag, sizeof(flag));
-  uint32_t resetCount4Byte = resetCount;
-  ESP.rtcUserMemoryWrite(memoryOffset + 1, &resetCount4Byte, sizeof(resetCount4Byte));
+  uint8_t *eepromBegin = eeprom.getDataPtr();
+  uint8_t *eepromEnd = eepromBegin + SPI_FLASH_SEC_SIZE;
+  uint8_t *resetCountCellPtr = nullptr;
+  for (uint8_t *cell = eepromBegin; cell < eepromEnd; ++cell) {
+    if (*cell == 0xFF) {
+      continue;
+    }
+    if (resetCountCellPtr == nullptr) {
+      resetCountCellPtr = cell;
+    }
+    *cell = 0xFF;
+  }
+  if (resetCountCellPtr == nullptr || ++resetCountCellPtr >= eepromEnd) {
+    resetCountCellPtr = eepromBegin;
+  }
+  *resetCountCellPtr = resetCount;
+  eeprom.commit();
 }
 
 uint8_t ResetDetector::detectResetCount() {
@@ -69,6 +84,6 @@ uint8_t ResetDetector::execute() {
   return resetCount;
 }
 
-uint8_t ResetDetector::execute(uint32_t timeoutMs, uint32_t memoryOffset) {
-  return ResetDetector(timeoutMs, memoryOffset).execute();
+uint8_t ResetDetector::execute(uint32_t timeoutMs, uint32_t eepromSector) {
+  return ResetDetector(timeoutMs, eepromSector).execute();
 }

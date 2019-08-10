@@ -1,6 +1,6 @@
 {
   "name": "ResetDetector",
-  "version": "1.0.2", 
+  "version": "1.0.3",
   "keywords": "reset, reboot, detect, esp, esp8266, esp-01",
   "description": "Detects how many times in a row reset button was clicled. It provides convinient way that does not requere extra pin output to boot device in an alternative start-up mode or reset device's wifi settings",
   "repository":

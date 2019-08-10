@@ -3,14 +3,16 @@
 
 #include <Arduino.h>
 #include <user_interface.h>
+#include <EEPROM.h>
 
 class ResetDetector {
   uint32_t timeoutMs;
-  uint32_t memoryOffset;
   bool waitingForDoubleReset;
   bool isLastResetReasonValuable;
+  EEPROMClass eeprom;
 public:
-  ResetDetector(uint32_t timeoutMs, uint32_t memoryOffset = 0);
+  ResetDetector(uint32_t timeoutMs, uint32_t eepromSector = 0);
+  ~ResetDetector();
 
   /**
    * Resets with the reason different to provide are ignored.
@@ -44,7 +46,7 @@ public:
    * Starts detection and waits timeoutMs. Returns how many times reset button
    * was clicked.
    */
-  static uint8_t execute(uint32_t timeoutMs, uint32_t memoryOffset = 0);
+  static uint8_t execute(uint32_t timeoutMs, uint32_t eepromSector = 0);
 private:
   uint8_t readResetCount();
   void writeResetCount(uint8_t resetCount);
